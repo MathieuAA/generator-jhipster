@@ -26,8 +26,9 @@ const { COUCHBASE, NEO4J, CASSANDRA, MONGODB, MARIADB, MSSQL, MYSQL, ORACLE, POS
 const { Options } = require('../jhipster/binary-options');
 
 class ApplicationValidator extends Validator {
-  constructor() {
+  constructor(customProperties) {
     super('application', []);
+    this.customProperties = customProperties;
   }
 
   validate(jdlApplication) {
@@ -99,7 +100,7 @@ function checkForValidValues(jdlApplication) {
 }
 
 function checkForUnknownApplicationOption(option) {
-  if (!doesOptionExist(option.name)) {
+  if (!doesOptionExist(option.name) && !!this.customProperties.isCustomApplicationOption(option.name)) {
     throw new Error(`Unknown application option '${option.name}'.`);
   }
 }
@@ -166,7 +167,11 @@ function checkProdDatabaseTypeValue(value) {
 }
 
 function checkForUnknownValue(option) {
-  if (getTypeForOption(option.name) !== 'boolean' && !doesOptionValueExist(option.name, option.getValue())) {
+  if (
+    getTypeForOption(option.name) !== 'boolean' &&
+    !doesOptionValueExist(option.name, option.getValue()) &&
+    !this.customProperties.isCustomApplicationOptionValue(option.name, option.value)
+  ) {
     throw new Error(`Unknown option value '${option.getValue()}' for option '${option.name}'.`);
   }
 }

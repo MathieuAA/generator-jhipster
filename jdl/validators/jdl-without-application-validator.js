@@ -30,6 +30,7 @@ const BinaryOptionValidator = require('./binary-option-validator');
 const { OptionNames } = require('../jhipster/application-options');
 const DatabaseTypes = require('../jhipster/database-types');
 const BinaryOptions = require('../jhipster/binary-options');
+const { createEmptyCustomPropertiesObject } = require('../parsing/custom-properties');
 
 const { isReservedFieldName } = require('../jhipster/reserved-keywords');
 const { isReservedTableName } = require('../jhipster/reserved-keywords');
@@ -47,6 +48,7 @@ module.exports = {
  * @param {String} applicationSettings.databaseType - the DB type.
  * @param {Boolean} applicationSettings.skippedUserManagement - whether user management is skipped.
  * @param {Array} applicationSettings.blueprints - the blueprints used.
+ * @param {CustomJDLProperties} applicationSettings.customProperties - custom JDL properties.
  * @param {Object} logger - the logger to use, default to the console.
  */
 function createValidator(jdlObject, applicationSettings = {}, logger = console) {
@@ -54,11 +56,16 @@ function createValidator(jdlObject, applicationSettings = {}, logger = console) 
     throw new Error('A JDL object must be passed to check for business errors.');
   }
 
-  if (applicationSettings.blueprints && applicationSettings.blueprints.length !== 0) {
+  const customProperties = applicationSettings.customProperties || createEmptyCustomPropertiesObject();
+
+  if (applicationSettings.blueprints && applicationSettings.blueprints.length !== 0 && !applicationSettings.customProperties) {
+    logger.warn(
+      'Blueprints are being used but the customProperties key has not been set. It is recommended to set it to validate parsed JDL ' +
+        'content. The JDL validation phase is skipped.'
+    );
+
     return {
-      checkForErrors: () => {
-        logger.warn('Blueprints are being used, the JDL validation phase is skipped.');
-      },
+      checkForErrors: () => {},
     };
   }
 
@@ -97,8 +104,8 @@ function createValidator(jdlObject, applicationSettings = {}, logger = console) 
       if (isReservedFieldName(jdlField.name)) {
         logger.warn(`The name '${jdlField.name}' is a reserved keyword, so it will be prefixed with the value of 'jhiPrefix'.`);
       }
-      const typeCheckingFunction = getTypeCheckingFunction(entityName, applicationSettings);
-      if (!jdlObject.hasEnum(jdlField.type) && !typeCheckingFunction(jdlField.type)) {
+      const isValidType = getTypeCheckingFunction(entityName, applicationSettings);
+      if (!jdlObject.hasEnum(jdlField.type) && !isValidType(jdlField.type) && !customProperties.doesTheFieldTypeExist(jdlField.type)) {
         throw new Error(`The type '${jdlField.type}' is an unknown field type for field '${fieldName}' of entity '${entityName}'.`);
       }
       const isAnEnum = jdlObject.hasEnum(jdlField.type);
@@ -110,7 +117,10 @@ function createValidator(jdlObject, applicationSettings = {}, logger = console) 
     const validator = new ValidationValidator();
     jdlField.forEachValidation(jdlValidation => {
       validator.validate(jdlValidation);
-      if (!FieldTypes.hasValidation(jdlField.type, jdlValidation.name, isAnEnum)) {
+      if (
+        !FieldTypes.hasValidation(jdlField.type, jdlValidation.name, isAnEnum) &&
+        !customProperties.doesTheValidationExist(jdlField.type, jdlValidation.name)
+      ) {
         throw new Error(`The validation '${jdlValidation.name}' isn't supported for the type '${jdlField.type}'.`);
       }
     });
@@ -157,8 +167,10 @@ function createValidator(jdlObject, applicationSettings = {}, logger = console) 
     if (jdlObject.getOptionQuantity() === 0) {
       return;
     }
-    const unaryOptionValidator = new UnaryOptionValidator();
-    const binaryOptionValidator = new BinaryOptionValidator();
+
+    const unaryOptionValidator = new UnaryOptionValidator(customProperties);
+    const binaryOptionValidator = new BinaryOptionValidator(customProperties);
+
     jdlObject.getOptions().forEach(option => {
       if (option.getType() === 'UNARY') {
         unaryOptionValidator.validate(option);

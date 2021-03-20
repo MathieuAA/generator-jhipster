@@ -21,13 +21,24 @@ const BinaryOptions = require('../jhipster/binary-options');
 const OptionValidator = require('./option-validator');
 
 class BinaryOptionValidator extends OptionValidator {
-  constructor() {
-    super('binary', 'value');
+  constructor(customProperties) {
+    super({ optionType: 'binary', additionalFieldToCheck: 'value', customProperties });
+    this.customProperties = customProperties;
   }
 
   validate(jdlOption) {
     super.validate(jdlOption);
-    checkForInvalidValue(jdlOption);
+
+    try {
+      checkForInvalidValue(jdlOption);
+    } catch (error) {
+      if (
+        !this.customProperties.doesOptionExist(jdlOption)(jdlOption) ||
+        !this.customProperties.doesValueExistForOption(jdlOption)(jdlOption)
+      ) {
+        throw error;
+      }
+    }
   }
 }
 

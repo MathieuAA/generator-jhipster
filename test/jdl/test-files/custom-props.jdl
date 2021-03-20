@@ -1,0 +1,24 @@
+// existing option, new custom value
+// new option, new values
+application {
+  config {
+    baseName customProps
+    clientFramework myGreatFramework
+    customProperty myOtherGreatFramework
+    otherCustomProperty [something, somethingElse]
+  }
+
+  entities *
+}
+
+entity A {
+  title String newValidationForString(yes)
+  // custom type, and validations
+  name CustomType customValidation otherCustomValidation(42)
+}
+
+// custom unary option
+customOption *
+
+// custom binary option
+use otherCustomValue for *

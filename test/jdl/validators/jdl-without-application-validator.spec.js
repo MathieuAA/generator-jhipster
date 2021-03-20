@@ -30,6 +30,7 @@ const FieldTypes = require('../../../jdl/jhipster/field-types');
 const Validations = require('../../../jdl/jhipster/validations');
 const RelationshipTypes = require('../../../jdl/jhipster/relationship-types');
 const BinaryOptions = require('../../../jdl/jhipster/binary-options');
+const { createCustomPropertiesObject } = require('../../../jdl/parsing/custom-properties');
 const { createValidator } = require('../../../jdl/validators/jdl-without-application-validator');
 
 describe('JDLWithoutApplicationValidator', () => {
@@ -155,61 +156,147 @@ describe('JDLWithoutApplicationValidator', () => {
         });
       });
     });
-    context('when having a field type that is invalid for a database type', () => {
-      let validator;
+    context('when having an invalid field type for a database type', () => {
+      context('when not having custom properties', () => {
+        let validator;
 
-      before(() => {
-        const validEntity = new JDLEntity({
-          name: 'Valid',
+        before(() => {
+          const validEntity = new JDLEntity({
+            name: 'Valid',
+          });
+          validEntity.addField(
+            new JDLField({
+              name: 'validField',
+              type: 'WeirdType',
+            })
+          );
+          const jdlObject = new JDLObject();
+          jdlObject.addEntity(validEntity);
+          validator = createValidator(jdlObject, {
+            databaseType: DatabaseTypes.SQL,
+          });
         });
-        validEntity.addField(
-          new JDLField({
-            name: 'validField',
-            type: 'WeirdType',
-          })
-        );
-        const jdlObject = new JDLObject();
-        jdlObject.addEntity(validEntity);
-        validator = createValidator(jdlObject, {
-          databaseType: DatabaseTypes.SQL,
+
+        it('should fail', () => {
+          expect(() => {
+            validator.checkForErrors();
+          }).to.throw("The type 'WeirdType' is an unknown field type for field 'validField' of entity 'Valid'.");
         });
       });
 
-      it('should fail', () => {
-        expect(() => {
-          validator.checkForErrors();
-        }).to.throw("The type 'WeirdType' is an unknown field type for field 'validField' of entity 'Valid'.");
+      context('when having custom properties', () => {
+        let validator;
+
+        before(() => {
+          const validEntity = new JDLEntity({
+            name: 'Valid',
+          });
+          validEntity.addField(
+            new JDLField({
+              name: 'validField',
+              type: 'WeirdType',
+            })
+          );
+          const jdlObject = new JDLObject();
+          jdlObject.addEntity(validEntity);
+          validator = createValidator(jdlObject, {
+            databaseType: DatabaseTypes.SQL,
+            customProperties: createCustomPropertiesObject({
+              entities: {
+                fields: {
+                  types: {
+                    WeirdType: {},
+                  },
+                },
+              },
+            }),
+          });
+        });
+
+        it('should not fail', () => {
+          expect(() => {
+            validator.checkForErrors();
+          }).to.not.throw();
+        });
       });
     });
     context('when passing an unsupported validation for a field', () => {
-      let validator;
+      context('when not having custom properties', () => {
+        let validator;
 
-      before(() => {
-        const entity = new JDLEntity({
-          name: 'Valid',
+        before(() => {
+          const entity = new JDLEntity({
+            name: 'Valid',
+          });
+          const field = new JDLField({
+            name: 'validField',
+            type: FieldTypes.CommonDBTypes.STRING,
+          });
+          field.addValidation(
+            new JDLValidation({
+              name: Validations.MIN,
+              value: 42,
+            })
+          );
+          entity.addField(field);
+          const jdlObject = new JDLObject();
+          jdlObject.addEntity(entity);
+          validator = createValidator(jdlObject, {
+            databaseType: DatabaseTypes.SQL,
+          });
         });
-        const field = new JDLField({
-          name: 'validField',
-          type: FieldTypes.CommonDBTypes.STRING,
-        });
-        field.addValidation(
-          new JDLValidation({
-            name: Validations.MIN,
-            value: 42,
-          })
-        );
-        entity.addField(field);
-        const jdlObject = new JDLObject();
-        jdlObject.addEntity(entity);
-        validator = createValidator(jdlObject, {
-          databaseType: DatabaseTypes.SQL,
+
+        it('should fail', () => {
+          expect(() => {
+            validator.checkForErrors();
+          }).to.throw("The validation 'min' isn't supported for the type 'String'.");
         });
       });
+      context('when having custom properties', () => {
+        let validator;
 
-      it('should fail', () => {
-        expect(() => {
-          validator.checkForErrors();
-        }).to.throw("The validation 'min' isn't supported for the type 'String'.");
+        before(() => {
+          const entity = new JDLEntity({
+            name: 'Valid',
+          });
+          const field = new JDLField({
+            name: 'validField',
+            type: FieldTypes.CommonDBTypes.STRING,
+          });
+          field.addValidation(
+            new JDLValidation({
+              name: Validations.MIN,
+              value: 42,
+            })
+          );
+          entity.addField(field);
+          const jdlObject = new JDLObject();
+          jdlObject.addEntity(entity);
+          validator = createValidator(jdlObject, {
+            databaseType: DatabaseTypes.SQL,
+            customProperties: createCustomPropertiesObject({
+              entities: {
+                fields: {
+                  types: {
+                    String: {
+                      validations: {
+                        min: {
+                          type: 'integer',
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            }),
+          });
+        });
+
+        it('should not fail', () => {
+          expect(() => {
+            validator.checkForErrors();
+          }).not.to.throw();
+        });
       });
     });
     context('when the source entity of a relationship is missing', () => {
@@ -521,26 +608,58 @@ describe('JDLWithoutApplicationValidator', () => {
         });
       });
     });
-    context('when blueprints is used', () => {
-      let parameter;
+    context('when blueprints are used', () => {
+      context('without setting the custom properties attribute', () => {
+        let parameter;
 
-      before(() => {
-        const jdlObject = new JDLObject();
-        const logger = {
-          warn: callParameter => {
-            parameter = callParameter;
-          },
-        };
-        const validator = createValidator(
-          jdlObject,
-          { blueprints: ['generator-jhipster-nodejs', 'generator-jhipster-dotnetcore'] },
-          logger
-        );
-        validator.checkForErrors();
+        before(() => {
+          const jdlObject = new JDLObject();
+          const logger = {
+            warn: callParameter => {
+              parameter = callParameter;
+            },
+          };
+          const validator = createValidator(
+            jdlObject,
+            { blueprints: ['generator-jhipster-nodejs', 'generator-jhipster-dotnetcore'] },
+            logger
+          );
+          validator.checkForErrors();
+        });
+
+        it('should warn about not performing jdl validation', () => {
+          expect(parameter).to.equal(
+            'Blueprints are being used but the customProperties key has not been set. It is recommended to set it ' +
+              'to validate parsed JDL content. The JDL validation phase is skipped.'
+          );
+        });
       });
+      context('while setting the custom properties attribute', () => {
+        let parameter;
 
-      it('should warn about not performing jdl validation', () => {
-        expect(parameter).to.equal('Blueprints are being used, the JDL validation phase is skipped.');
+        before(() => {
+          const jdlObject = new JDLObject();
+          const logger = {
+            warn: callParameter => {
+              parameter = callParameter;
+            },
+          };
+          const validator = createValidator(
+            jdlObject,
+            {
+              blueprints: ['generator-jhipster-nodejs', 'generator-jhipster-dotnetcore'],
+              customProperties: {
+                noCustomProperties: true,
+              },
+            },
+            logger
+          );
+          validator.checkForErrors();
+        });
+
+        it('should not warn about not performing jdl validation', () => {
+          expect(parameter).to.be.undefined;
+        });
       });
     });
   });

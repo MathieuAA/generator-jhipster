@@ -67,16 +67,12 @@ function isReservedTableName(keyword, databaseType) {
 function isReservedFieldName(keyword, clientFramework) {
   if (clientFramework) {
     if (clientFramework === clientFrameworks.angularX) {
-      // Angular client framework
       return isReserved(keyword, 'ANGULAR') || isReserved(keyword, 'TYPESCRIPT') || isReserved(keyword, 'JAVA');
     }
     if (clientFramework === clientFrameworks.react) {
-      // React client framework
       return isReserved(keyword, 'TYPESCRIPT') || isReserved(keyword, 'JAVA');
     }
   }
-  // If no client framework is selected
-  // for example in JDL, entities can be used with both Angular and React, so both reserved keywords lists should be used
   return isReserved(keyword, 'ANGULAR') || isReserved(keyword, 'TYPESCRIPT') || isReserved(keyword, 'JAVA');
 }
 

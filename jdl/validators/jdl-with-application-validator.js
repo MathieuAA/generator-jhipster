@@ -30,6 +30,7 @@ const BinaryOptionValidator = require('./binary-option-validator');
 const DatabaseTypes = require('../jhipster/database-types');
 const BinaryOptions = require('../jhipster/binary-options');
 const ApplicationValidator = require('./application-validator');
+const { createEmptyCustomPropertiesObject } = require('../parsing/custom-properties');
 
 const { isReservedFieldName } = require('../jhipster/reserved-keywords');
 const { isReservedTableName } = require('../jhipster/reserved-keywords');
@@ -41,28 +42,39 @@ module.exports = {
 /**
  * Constructor taking the jdl object to check against application settings.
  * @param {JDLObject} jdlObject -  the jdl object to check.
+ * @param {Object} applicationSettings - the settings object.
+ * @param {CustomJDLProperties} applicationSettings.customProperties - custom JDL properties.
  * @param {Object} logger - the logger to use, default to the console.
  */
-function createValidator(jdlObject, logger = console) {
+function createValidator(jdlObject, applicationSettings = {}, logger = console) {
   if (!jdlObject) {
     throw new Error('A JDL object must be passed to check for business errors.');
   }
+
+  const customProperties = applicationSettings.customProperties || createEmptyCustomPropertiesObject();
 
   return {
     checkForErrors: () => {
       checkForApplicationErrors();
       jdlObject.forEachApplication(jdlApplication => {
         const blueprints = jdlApplication.getConfigurationOptionValue('blueprints');
-        if (blueprints && blueprints.length > 0) {
-          logger.warn('Blueprints are being used, the JDL validation phase is skipped.');
+
+        if (blueprints && blueprints.length > 0 && !applicationSettings.customProperties) {
+          logger.warn(
+            'Blueprints are being used but the customProperties key has not been set. It is recommended to set it to validate parsed JDL ' +
+              'content. The JDL validation phase is skipped.'
+          );
+
           return;
         }
+
         checkForEntityErrors(jdlApplication);
         checkForRelationshipErrors(jdlApplication);
         checkForEnumErrors();
         checkDeploymentsErrors();
         checkForOptionErrors(jdlApplication);
       });
+
       checkForRelationshipsBetweenApplications();
     },
   };
@@ -110,8 +122,8 @@ function createValidator(jdlObject, logger = console) {
       if (isReservedFieldName(jdlField.name)) {
         logger.warn(`The name '${jdlField.name}' is a reserved keyword, so it will be prefixed with the value of 'jhiPrefix'.`);
       }
-      const typeCheckingFunction = getTypeCheckingFunction(entityName, jdlApplication);
-      if (!jdlObject.hasEnum(jdlField.type) && !typeCheckingFunction(jdlField.type)) {
+      const isValidType = getTypeCheckingFunction(entityName, jdlApplication);
+      if (!jdlObject.hasEnum(jdlField.type) && !isValidType(jdlField.type) && !customProperties.doesTheFieldTypeExist(jdlField.type)) {
         throw new Error(`The type '${jdlField.type}' is an unknown field type for field '${fieldName}' of entity '${entityName}'.`);
       }
       const isAnEnum = jdlObject.hasEnum(jdlField.type);
@@ -124,7 +136,10 @@ function createValidator(jdlObject, logger = console) {
     Object.keys(jdlField.validations).forEach(validationName => {
       const jdlValidation = jdlField.validations[validationName];
       validator.validate(jdlValidation);
-      if (!FieldTypes.hasValidation(jdlField.type, jdlValidation.name, isAnEnum)) {
+      if (
+        !FieldTypes.hasValidation(jdlField.type, jdlValidation.name, isAnEnum) &&
+        !customProperties.doesTheValidationExist(jdlField.type, jdlValidation.name)
+      ) {
         throw new Error(`The validation '${jdlValidation.name}' isn't supported for the type '${jdlField.type}'.`);
       }
     });
@@ -170,8 +185,10 @@ function createValidator(jdlObject, logger = console) {
     if (jdlObject.getOptionQuantity() === 0) {
       return;
     }
-    const unaryOptionValidator = new UnaryOptionValidator();
-    const binaryOptionValidator = new BinaryOptionValidator();
+
+    const unaryOptionValidator = new UnaryOptionValidator(customProperties);
+    const binaryOptionValidator = new BinaryOptionValidator(customProperties);
+
     jdlObject.getOptions().forEach(option => {
       if (option.getType() === 'UNARY') {
         unaryOptionValidator.validate(option);

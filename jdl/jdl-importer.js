@@ -50,6 +50,7 @@ module.exports = {
  * @param {String} configuration.generatorVersion - deprecated, the generator's version, optional if parsing applications
  * @param {String} configuration.forceNoFiltering - whether to force filtering
  * @param {Boolean} configuration.skipFileGeneration - whether not to generate the .yo-rc.json file
+ * @param {CustomJDLProperties} configuration.customProperties - custom properties to take into account when parsing the JDL
  * @returns {Object} a JDL importer.
  * @throws {Error} if files aren't passed.
  */
@@ -163,6 +164,7 @@ function checkForErrors(jdlObject, configuration, logger = console) {
     let databaseType = configuration.databaseType;
     let skippedUserManagement = configuration.skipUserManagement;
     let blueprints = configuration.blueprints;
+
     if (application && application['generator-jhipster']) {
       if (applicationType === undefined) {
         applicationType = application['generator-jhipster'].applicationType;
@@ -177,6 +179,7 @@ function checkForErrors(jdlObject, configuration, logger = console) {
         blueprints = application['generator-jhipster'].blueprints;
       }
     }
+
     validator = JDLWithoutApplicationValidator.createValidator(
       jdlObject,
       {
@@ -184,11 +187,18 @@ function checkForErrors(jdlObject, configuration, logger = console) {
         databaseType,
         skippedUserManagement,
         blueprints,
+        customProperties: configuration.customProperties,
       },
       logger
     );
   } else {
-    validator = JDLWithApplicationValidator.createValidator(jdlObject, logger);
+    validator = JDLWithApplicationValidator.createValidator(
+      jdlObject,
+      {
+        customProperties: configuration.customProperties,
+      },
+      logger
+    );
   }
   validator.checkForErrors();
 }

@@ -18,11 +18,31 @@
  */
 
 const OptionValidator = require('./option-validator');
+const UnaryOptions = require('../jhipster/unary-options');
 
 class UnaryOptionValidator extends OptionValidator {
-  constructor() {
-    super('unary');
+  constructor(customProperties) {
+    super({ optionType: 'unary', customProperties });
+    this.customProperties = customProperties;
+  }
+
+  validate(jdlOption) {
+    super.validate(jdlOption);
+
+    try {
+      checkForInvalidValue(jdlOption);
+    } catch (error) {
+      if (!this.customProperties.doesOptionExist(jdlOption)(jdlOption)) {
+        throw error;
+      }
+    }
   }
 }
 
 module.exports = UnaryOptionValidator;
+
+function checkForInvalidValue(jdlOption) {
+  if (!UnaryOptions.exists(jdlOption.name)) {
+    throw new Error(`The '${jdlOption.name}' option is not valid.`);
+  }
+}

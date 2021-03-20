@@ -20,7 +20,7 @@
 const Validator = require('./validator');
 
 class OptionValidator extends Validator {
-  constructor(optionType, additionalFieldToCheck) {
+  constructor({ optionType, additionalFieldToCheck }) {
     const fieldsToCheck = ['name', 'entityNames', 'excludedNames', 'getType'];
     if (additionalFieldToCheck) {
       fieldsToCheck.push(additionalFieldToCheck);

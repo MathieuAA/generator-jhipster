@@ -31,6 +31,7 @@ const JDLEntity = require('../../../jdl/models/jdl-entity');
 const JDLField = require('../../../jdl/models/jdl-field');
 const JDLRelationship = require('../../../jdl/models/jdl-relationship');
 const JDLValidation = require('../../../jdl/models/jdl-validation');
+const { createCustomPropertiesObject, createEmptyCustomPropertiesObject } = require('../../../jdl/parsing/custom-properties');
 const { createValidator } = require('../../../jdl/validators/jdl-with-application-validator');
 
 describe('JDLWithApplicationValidator', () => {
@@ -87,7 +88,7 @@ describe('JDLWithApplicationValidator', () => {
             parameter = callParameter;
           },
         };
-        const validator = createValidator(jdlObject, logger);
+        const validator = createValidator(jdlObject, createEmptyCustomPropertiesObject(), logger);
         validator.checkForErrors();
       });
 
@@ -123,7 +124,7 @@ describe('JDLWithApplicationValidator', () => {
             parameter = callParameter;
           },
         };
-        const validator = createValidator(jdlObject, logger);
+        const validator = createValidator(jdlObject, createCustomPropertiesObject(), logger);
         validator.checkForErrors();
       });
 
@@ -675,28 +676,65 @@ describe('JDLWithApplicationValidator', () => {
         });
       });
     });
-    context('when blueprints is used', () => {
-      let parameter;
+    context('when blueprints are used', () => {
+      context('without custom properties', () => {
+        let parameter;
 
-      before(() => {
-        const jdlObject = new JDLObject();
-        const application = createJDLApplication({
-          applicationType: ApplicationTypes.MONOLITH,
-          databaseType: DatabaseTypes.SQL,
-          blueprints: ['generator-jhipster-nodejs', 'generator-jhipster-dotnetcore'],
+        before(() => {
+          const jdlObject = new JDLObject();
+          const application = createJDLApplication({
+            applicationType: ApplicationTypes.MONOLITH,
+            databaseType: DatabaseTypes.SQL,
+            blueprints: ['generator-jhipster-nodejs', 'generator-jhipster-dotnetcore'],
+          });
+          jdlObject.addApplication(application);
+          const logger = {
+            warn: callParameter => {
+              parameter = callParameter;
+            },
+          };
+          const validator = createValidator(jdlObject, createEmptyCustomPropertiesObject(), logger);
+          validator.checkForErrors();
         });
-        jdlObject.addApplication(application);
-        const logger = {
-          warn: callParameter => {
-            parameter = callParameter;
-          },
-        };
-        const validator = createValidator(jdlObject, logger);
-        validator.checkForErrors();
-      });
 
-      it('should warn about not performing jdl validation', () => {
-        expect(parameter).to.equal('Blueprints are being used, the JDL validation phase is skipped.');
+        it('should warn about not performing jdl validation', () => {
+          expect(parameter).to.equal(
+            'Blueprints are being used but the customProperties key has not been set. It is recommended to set it ' +
+              'to validate parsed JDL content. The JDL validation phase is skipped.'
+          );
+        });
+      });
+      context('with custom properties', () => {
+        let parameter;
+
+        before(() => {
+          const jdlObject = new JDLObject();
+          const application = createJDLApplication({
+            applicationType: ApplicationTypes.MONOLITH,
+            databaseType: DatabaseTypes.SQL,
+            blueprints: ['generator-jhipster-nodejs', 'generator-jhipster-dotnetcore'],
+          });
+          jdlObject.addApplication(application);
+          const logger = {
+            warn: callParameter => {
+              parameter = callParameter;
+            },
+          };
+          const validator = createValidator(
+            jdlObject,
+            {
+              customProperties: createCustomPropertiesObject({
+                noCustomProperties: true,
+              }),
+            },
+            logger
+          );
+          validator.checkForErrors();
+        });
+
+        it('should not warn', () => {
+          expect(parameter).to.be.undefined;
+        });
       });
     });
   });

@@ -2087,5 +2087,70 @@ relationship OneToOne {
         });
       });
     });
+    context('when parsing a JDL file with custom properties and values', () => {
+      let returned;
+
+      before(() => {
+        const importer = createImporterFromFiles([path.join(__dirname, 'test-files', 'custom-props.jdl')], {
+          applicationName: 'MyApp',
+          applicationType: ApplicationTypes.MONOLITH,
+          databaseType: DatabaseTypes.SQL,
+          customProperties: {
+            applications: {
+              options: {
+                clientFramework: {
+                  additionalValues: ['myGreatFramework'],
+                },
+                customProperty: {
+                  type: 'string',
+                  possibleValues: ['myOtherGreatFramework'],
+                },
+                otherCustomProperty: {
+                  type: 'string',
+                  possibleValues: ['something', 'somethingElse'],
+                },
+              },
+            },
+            entities: {
+              fields: {
+                types: {
+                  String: {
+                    validations: {
+                      newValidationForString: {
+                        type: 'string',
+                      },
+                    },
+                  },
+                  CustomType: {
+                    validations: {
+                      customValidation: {
+                        type: 'boolean',
+                      },
+                      otherCustomValidation: {
+                        type: 'integer',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            options: {
+              customOption: {
+                type: 'unary',
+              },
+              otherCustomOption: {
+                type: 'binary',
+                possibleValues: ['otherCustomValue'],
+              },
+            },
+          },
+        });
+        returned = importer.import();
+      });
+
+      it('should take them into account', () => {
+        expect(returned).to.deep.equal({});
+      });
+    });
   });
 });
